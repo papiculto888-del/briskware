@@ -1,10 +1,6 @@
---// Vape-style UI Library (Delta compatible)
 local Players = game:GetService("Players")
 local UIS = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
-
-local Library = {}
-Library.__index = Library
 
 local THEME = {
     Background = Color3.fromRGB(22, 22, 24),
@@ -22,22 +18,10 @@ local function new(class, props, children)
     for _, c in ipairs(children or {}) do c.Parent = inst end
     return inst
 end
-
 local function corner(r) return new("UICorner", {CornerRadius = UDim.new(0, r or 6)}) end
-local function tween(inst, props, t)
-    TweenService:Create(inst, TweenInfo.new(t or 0.15, Enum.EasingStyle.Quad), props):Play()
+local function tween(inst, props)
+    TweenService:Create(inst, TweenInfo.new(0.15, Enum.EasingStyle.Quad), props):Play()
 end
-
-local function getParent()
-    if gethui then
-        local ok, res = pcall(gethui)
-        if ok and res then return res end
-    end
-    local ok, gui = pcall(function() return game:GetService("CoreGui") end)
-    if ok and gui then return gui end
-    return Players.LocalPlayer:WaitForChild("PlayerGui")
-end
-
 local function isPress(i)
     return i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch
 end
@@ -45,176 +29,137 @@ local function isMove(i)
     return i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch
 end
 
---// Window
-function Library.new(title)
-    local self = setmetatable({}, Library)
-    self.Tabs = {}
-    self.ActiveTab = nil
-
-    local parent = getParent()
-    local old = parent:FindFirstChild("VapeStyleUI")
-    if old then old:Destroy() end
-
-    self.Gui = new("ScreenGui", {
-        Name = "VapeStyleUI", ResetOnSpawn = false,
-        ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
-    })
-    self.Gui.Parent = parent
-
-    self.Main = new("Frame", {
-        Size = UDim2.fromOffset(520, 340),
-        Position = UDim2.new(0.5, -260, 0.5, -170),
-        BackgroundColor3 = THEME.Background,
-        BorderSizePixel = 0, Parent = self.Gui,
-    }, {corner(8)})
-
-    local top = new("Frame", {
-        Size = UDim2.new(1, 0, 0, 36), BackgroundColor3 = THEME.Sidebar,
-        BorderSizePixel = 0, Parent = self.Main,
-    }, {corner(8)})
-    new("TextLabel", {
-        Size = UDim2.new(1, -16, 1, 0), Position = UDim2.fromOffset(14, 0),
-        BackgroundTransparency = 1, Text = title or "VAPE",
-        TextColor3 = THEME.Text, Font = Enum.Font.GothamBold, TextSize = 15,
-        TextXAlignment = Enum.TextXAlignment.Left, Parent = top,
-    })
-
-    self.TabList = new("Frame", {
-        Size = UDim2.new(0, 120, 1, -44), Position = UDim2.fromOffset(6, 40),
-        BackgroundTransparency = 1, Parent = self.Main,
-    }, {new("UIListLayout", {Padding = UDim.new(0, 4)})})
-
-    self.Content = new("Frame", {
-        Size = UDim2.new(1, -140, 1, -48), Position = UDim2.fromOffset(132, 42),
-        BackgroundTransparency = 1, Parent = self.Main,
-    })
-
-    -- Dragging (mouse + touch)
-    local dragging, dragStart, startPos
-    top.InputBegan:Connect(function(i)
-        if isPress(i) then
-            dragging, dragStart, startPos = true, i.Position, self.Main.Position
-        end
-    end)
-    UIS.InputChanged:Connect(function(i)
-        if dragging and isMove(i) then
-            local d = i.Position - dragStart
-            self.Main.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + d.X, startPos.Y.Scale, startPos.Y.Offset + d.Y)
-        end
-    end)
-    UIS.InputEnded:Connect(function(i)
-        if isPress(i) then dragging = false end
-    end)
-
-    -- PC toggle key
-    UIS.InputBegan:Connect(function(i, gp)
-        if not gp and i.KeyCode == Enum.KeyCode.RightShift then
-            self.Main.Visible = not self.Main.Visible
-        end
-    end)
-
-    -- Mobile toggle button
-    local toggleBtn = new("TextButton", {
-        Size = UDim2.fromOffset(40, 40), Position = UDim2.new(0, 10, 0.5, -20),
-        BackgroundColor3 = THEME.Accent, Text = "V", Font = Enum.Font.GothamBold,
-        TextSize = 18, TextColor3 = THEME.Text, AutoButtonColor = false,
-        Active = true, Parent = self.Gui,
-    }, {corner(10)})
-    toggleBtn.MouseButton1Click:Connect(function()
-        self.Main.Visible = not self.Main.Visible
-    end)
-
-    -- Notifications holder
-    self.NotifHolder = new("Frame", {
-        Size = UDim2.new(0, 240, 1, -20), Position = UDim2.new(1, -250, 0, 10),
-        BackgroundTransparency = 1, Parent = self.Gui,
-    }, {new("UIListLayout", {
-        Padding = UDim.new(0, 6), VerticalAlignment = Enum.VerticalAlignment.Bottom,
-        HorizontalAlignment = Enum.HorizontalAlignment.Right,
-    })})
-
-    return self
+local parent
+if gethui then
+    local ok, res = pcall(gethui)
+    if ok and res then parent = res end
 end
+if not parent then
+    local ok, gui = pcall(function() return game:GetService("CoreGui") end)
+    parent = ok and gui or Players.LocalPlayer:WaitForChild("PlayerGui")
+end
+local old = parent:FindFirstChild("VapeStyleUI")
+if old then old:Destroy() end
 
---// Notifications
-function Library:Notify(title, text, duration)
-    local n = new("Frame", {
-        Size = UDim2.fromOffset(240, 52), BackgroundColor3 = THEME.Sidebar,
-        BorderSizePixel = 0, Parent = self.NotifHolder,
-    }, {corner(6)})
+local Gui = new("ScreenGui", {Name = "VapeStyleUI", ResetOnSpawn = false, ZIndexBehavior = Enum.ZIndexBehavior.Sibling})
+Gui.Parent = parent
+
+local Main = new("Frame", {
+    Size = UDim2.fromOffset(520, 340), Position = UDim2.new(0.5, -260, 0.5, -170),
+    BackgroundColor3 = THEME.Background, BorderSizePixel = 0, Parent = Gui,
+}, {corner(8)})
+
+local top = new("Frame", {
+    Size = UDim2.new(1, 0, 0, 36), BackgroundColor3 = THEME.Sidebar, BorderSizePixel = 0, Parent = Main,
+}, {corner(8)})
+new("TextLabel", {
+    Size = UDim2.new(1, -16, 1, 0), Position = UDim2.fromOffset(14, 0), BackgroundTransparency = 1,
+    Text = "VAPE", TextColor3 = THEME.Text, Font = Enum.Font.GothamBold, TextSize = 15,
+    TextXAlignment = Enum.TextXAlignment.Left, Parent = top,
+})
+
+local TabList = new("Frame", {
+    Size = UDim2.new(0, 120, 1, -44), Position = UDim2.fromOffset(6, 40), BackgroundTransparency = 1, Parent = Main,
+}, {new("UIListLayout", {Padding = UDim.new(0, 4)})})
+local Content = new("Frame", {
+    Size = UDim2.new(1, -140, 1, -48), Position = UDim2.fromOffset(132, 42), BackgroundTransparency = 1, Parent = Main,
+})
+
+-- Dragging
+local dragging, dragStart, startPos
+top.InputBegan:Connect(function(i)
+    if isPress(i) then dragging, dragStart, startPos = true, i.Position, Main.Position end
+end)
+UIS.InputChanged:Connect(function(i)
+    if dragging and isMove(i) then
+        local d = i.Position - dragStart
+        Main.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + d.X, startPos.Y.Scale, startPos.Y.Offset + d.Y)
+    end
+end)
+UIS.InputEnded:Connect(function(i) if isPress(i) then dragging = false end end)
+
+-- Toggle: RightShift (PC) or V button (mobile)
+UIS.InputBegan:Connect(function(i, gp)
+    if not gp and i.KeyCode == Enum.KeyCode.RightShift then Main.Visible = not Main.Visible end
+end)
+local toggleBtn = new("TextButton", {
+    Size = UDim2.fromOffset(44, 44), Position = UDim2.new(0, 10, 0.5, -22),
+    BackgroundColor3 = THEME.Accent, Text = "V", Font = Enum.Font.GothamBold, TextSize = 18,
+    TextColor3 = THEME.Text, AutoButtonColor = false, Parent = Gui,
+}, {corner(10)})
+toggleBtn.MouseButton1Click:Connect(function() Main.Visible = not Main.Visible end)
+
+-- Notifications
+local NotifHolder = new("Frame", {
+    Size = UDim2.new(0, 240, 1, -20), Position = UDim2.new(1, -250, 0, 10), BackgroundTransparency = 1, Parent = Gui,
+}, {new("UIListLayout", {
+    Padding = UDim.new(0, 6), VerticalAlignment = Enum.VerticalAlignment.Bottom,
+    HorizontalAlignment = Enum.HorizontalAlignment.Right,
+})})
+local function Notify(title, text, duration)
+    local n = new("Frame", {Size = UDim2.fromOffset(240, 52), BackgroundColor3 = THEME.Sidebar, BorderSizePixel = 0, Parent = NotifHolder}, {corner(6)})
     new("Frame", {Size = UDim2.new(0, 3, 1, 0), BackgroundColor3 = THEME.Accent, BorderSizePixel = 0, Parent = n})
     new("TextLabel", {
-        Size = UDim2.new(1, -16, 0, 20), Position = UDim2.fromOffset(12, 6),
-        BackgroundTransparency = 1, Text = title, Font = Enum.Font.GothamBold, TextSize = 13,
-        TextColor3 = THEME.Text, TextXAlignment = Enum.TextXAlignment.Left, Parent = n,
+        Size = UDim2.new(1, -16, 0, 20), Position = UDim2.fromOffset(12, 6), BackgroundTransparency = 1,
+        Text = title, Font = Enum.Font.GothamBold, TextSize = 13, TextColor3 = THEME.Text,
+        TextXAlignment = Enum.TextXAlignment.Left, Parent = n,
     })
     new("TextLabel", {
-        Size = UDim2.new(1, -16, 0, 18), Position = UDim2.fromOffset(12, 26),
-        BackgroundTransparency = 1, Text = text or "", Font = Enum.Font.Gotham, TextSize = 12,
-        TextColor3 = THEME.SubText, TextXAlignment = Enum.TextXAlignment.Left, Parent = n,
+        Size = UDim2.new(1, -16, 0, 18), Position = UDim2.fromOffset(12, 26), BackgroundTransparency = 1,
+        Text = text or "", Font = Enum.Font.Gotham, TextSize = 12, TextColor3 = THEME.SubText,
+        TextXAlignment = Enum.TextXAlignment.Left, Parent = n,
     })
     task.delay(duration or 3, function() n:Destroy() end)
 end
 
---// Tabs
-function Library:CreateTab(name)
-    local tab = {Modules = {}}
-    local window = self
-
+-- Tabs
+local ActiveTab
+local function CreateTab(name)
+    local tab = {}
     tab.Button = new("TextButton", {
-        Size = UDim2.new(1, 0, 0, 32), BackgroundColor3 = THEME.Sidebar,
-        Text = name, Font = Enum.Font.GothamMedium, TextSize = 13,
-        TextColor3 = THEME.SubText, AutoButtonColor = false, Parent = self.TabList,
+        Size = UDim2.new(1, 0, 0, 32), BackgroundColor3 = THEME.Sidebar, Text = name,
+        Font = Enum.Font.GothamMedium, TextSize = 13, TextColor3 = THEME.SubText,
+        AutoButtonColor = false, Parent = TabList,
     }, {corner(6)})
-
     tab.Page = new("ScrollingFrame", {
         Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, BorderSizePixel = 0,
         ScrollBarThickness = 3, CanvasSize = UDim2.new(), AutomaticCanvasSize = Enum.AutomaticSize.Y,
-        Visible = false, Parent = self.Content,
+        Visible = false, Parent = Content,
     }, {new("UIListLayout", {Padding = UDim.new(0, 6)})})
 
     local function select()
-        if window.ActiveTab then
-            window.ActiveTab.Page.Visible = false
-            tween(window.ActiveTab.Button, {BackgroundColor3 = THEME.Sidebar, TextColor3 = THEME.SubText})
+        if ActiveTab then
+            ActiveTab.Page.Visible = false
+            tween(ActiveTab.Button, {BackgroundColor3 = THEME.Sidebar, TextColor3 = THEME.SubText})
         end
-        window.ActiveTab = tab
+        ActiveTab = tab
         tab.Page.Visible = true
         tween(tab.Button, {BackgroundColor3 = THEME.Accent, TextColor3 = THEME.Text})
     end
     tab.Button.MouseButton1Click:Connect(select)
-    if not window.ActiveTab then select() end
+    if not ActiveTab then select() end
 
-    --// Modules
     function tab:CreateModule(cfg)
         local module = {Enabled = false}
-        cfg = cfg or {}
-
         local frame = new("Frame", {
             Size = UDim2.new(1, -6, 0, 36), AutomaticSize = Enum.AutomaticSize.Y,
             BackgroundColor3 = THEME.Module, BorderSizePixel = 0, Parent = tab.Page,
         }, {corner(6), new("UIListLayout", {})})
-
         local header = new("TextButton", {
-            Size = UDim2.new(1, 0, 0, 36), BackgroundTransparency = 1,
-            Text = "", Parent = frame, LayoutOrder = 0,
+            Size = UDim2.new(1, 0, 0, 36), BackgroundTransparency = 1, Text = "", LayoutOrder = 0, Parent = frame,
         })
         local label = new("TextLabel", {
-            Size = UDim2.new(1, -44, 1, 0), Position = UDim2.fromOffset(12, 0),
-            BackgroundTransparency = 1, Text = cfg.Name or "Module",
-            Font = Enum.Font.GothamMedium, TextSize = 13, TextColor3 = THEME.SubText,
-            TextXAlignment = Enum.TextXAlignment.Left, Parent = header,
+            Size = UDim2.new(1, -44, 1, 0), Position = UDim2.fromOffset(12, 0), BackgroundTransparency = 1,
+            Text = cfg.Name or "Module", Font = Enum.Font.GothamMedium, TextSize = 13,
+            TextColor3 = THEME.SubText, TextXAlignment = Enum.TextXAlignment.Left, Parent = header,
         })
         local arrow = new("TextButton", {
-            Size = UDim2.fromOffset(30, 36), Position = UDim2.new(1, -32, 0, 0),
-            BackgroundTransparency = 1, Text = "+", Font = Enum.Font.GothamBold,
-            TextSize = 16, TextColor3 = THEME.SubText, Parent = header,
+            Size = UDim2.fromOffset(30, 36), Position = UDim2.new(1, -32, 0, 0), BackgroundTransparency = 1,
+            Text = "+", Font = Enum.Font.GothamBold, TextSize = 16, TextColor3 = THEME.SubText, Parent = header,
         })
-
         local options = new("Frame", {
-            Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y,
-            BackgroundColor3 = THEME.Option, BorderSizePixel = 0,
-            Visible = false, LayoutOrder = 1, Parent = frame,
+            Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundColor3 = THEME.Option,
+            BorderSizePixel = 0, Visible = false, LayoutOrder = 1, Parent = frame,
         }, {new("UIListLayout", {Padding = UDim.new(0, 2)}),
             new("UIPadding", {PaddingTop = UDim.new(0, 4), PaddingBottom = UDim.new(0, 4)})})
 
@@ -224,7 +169,6 @@ function Library:CreateTab(name)
             tween(label, {TextColor3 = state and THEME.Text or THEME.SubText})
             if cfg.Callback then task.spawn(cfg.Callback, state) end
         end
-
         header.MouseButton1Click:Connect(function() module:SetEnabled(not module.Enabled) end)
         arrow.MouseButton1Click:Connect(function()
             options.Visible = not options.Visible
@@ -233,13 +177,11 @@ function Library:CreateTab(name)
 
         function module:AddToggle(c)
             local state = c.Default or false
-            local row = new("TextButton", {
-                Size = UDim2.new(1, 0, 0, 28), BackgroundTransparency = 1, Text = "", Parent = options,
-            })
+            local row = new("TextButton", {Size = UDim2.new(1, 0, 0, 28), BackgroundTransparency = 1, Text = "", Parent = options})
             new("TextLabel", {
-                Size = UDim2.new(1, -50, 1, 0), Position = UDim2.fromOffset(12, 0),
-                BackgroundTransparency = 1, Text = c.Name, Font = Enum.Font.Gotham, TextSize = 12,
-                TextColor3 = THEME.Text, TextXAlignment = Enum.TextXAlignment.Left, Parent = row,
+                Size = UDim2.new(1, -50, 1, 0), Position = UDim2.fromOffset(12, 0), BackgroundTransparency = 1,
+                Text = c.Name, Font = Enum.Font.Gotham, TextSize = 12, TextColor3 = THEME.Text,
+                TextXAlignment = Enum.TextXAlignment.Left, Parent = row,
             })
             local track = new("Frame", {
                 Size = UDim2.fromOffset(30, 14), Position = UDim2.new(1, -42, 0.5, -7),
@@ -263,5 +205,67 @@ function Library:CreateTab(name)
             local value = c.Default or min
             local row = new("Frame", {Size = UDim2.new(1, 0, 0, 40), BackgroundTransparency = 1, Parent = options})
             local text = new("TextLabel", {
-                Size = UDim2.new(1, -24, 0, 18), Position = UDim2.fromOffset(12, 2),
-                BackgroundTransparency = 1, Text = c.Name .. ": " .. value, Font = Enum.Font.Gotham,
+                Size = UDim2.new(1, -24, 0, 18), Position = UDim2.fromOffset(12, 2), BackgroundTransparency = 1,
+                Text = c.Name .. ": " .. value, Font = Enum.Font.Gotham, TextSize = 12, TextColor3 = THEME.Text,
+                TextXAlignment = Enum.TextXAlignment.Left, Parent = row,
+            })
+            local bar = new("Frame", {
+                Size = UDim2.new(1, -24, 0, 8), Position = UDim2.fromOffset(12, 26),
+                BackgroundColor3 = THEME.Module, Parent = row,
+            }, {corner(4)})
+            local fill = new("Frame", {
+                Size = UDim2.fromScale((value - min) / (max - min), 1), BackgroundColor3 = THEME.Accent, Parent = bar,
+            }, {corner(4)})
+            local sliding = false
+            local function update(x)
+                local pct = math.clamp((x - bar.AbsolutePosition.X) / bar.AbsoluteSize.X, 0, 1)
+                value = math.floor(min + (max - min) * pct + 0.5)
+                fill.Size = UDim2.fromScale(pct, 1)
+                text.Text = c.Name .. ": " .. value
+                if c.Callback then task.spawn(c.Callback, value) end
+            end
+            bar.InputBegan:Connect(function(i) if isPress(i) then sliding = true; update(i.Position.X) end end)
+            UIS.InputChanged:Connect(function(i) if sliding and isMove(i) then update(i.Position.X) end end)
+            UIS.InputEnded:Connect(function(i) if isPress(i) then sliding = false end end)
+        end
+
+        function module:AddDropdown(c)
+            local index = 1
+            local btn = new("TextButton", {Size = UDim2.new(1, 0, 0, 28), BackgroundTransparency = 1, Text = "", Parent = options})
+            local lbl = new("TextLabel", {
+                Size = UDim2.new(1, -24, 1, 0), Position = UDim2.fromOffset(12, 0), BackgroundTransparency = 1,
+                Text = c.Name .. ": " .. c.Options[1], Font = Enum.Font.Gotham, TextSize = 12,
+                TextColor3 = THEME.Text, TextXAlignment = Enum.TextXAlignment.Left, Parent = btn,
+            })
+            btn.MouseButton1Click:Connect(function()
+                index = index % #c.Options + 1
+                lbl.Text = c.Name .. ": " .. c.Options[index]
+                if c.Callback then task.spawn(c.Callback, c.Options[index]) end
+            end)
+        end
+
+        if cfg.Default then module:SetEnabled(true) end
+        return module
+    end
+
+    return tab
+end
+
+--------------------------------------------------------------------
+-- YOUR MENU (edit this part)
+--------------------------------------------------------------------
+local combat = CreateTab("Combat")
+local movement = CreateTab("Movement")
+local visuals = CreateTab("Visuals")
+
+local speed = movement:CreateModule({
+    Name = "Speed",
+    Callback = function(on) print("Speed:", on) end,
+})
+speed:AddSlider({Name = "Value", Min = 16, Max = 100, Default = 30, Callback = function(v) print(v) end})
+speed:AddToggle({Name = "Auto Jump", Callback = function(s) print(s) end})
+
+local esp = visuals:CreateModule({Name = "ESP", Callback = function(on) print("ESP:", on) end})
+esp:AddDropdown({Name = "Mode", Options = {"Box", "Outline", "Name"}, Callback = print})
+
+Notify("Loaded", "Tap the V button to toggle", 4)
